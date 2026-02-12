@@ -5,6 +5,12 @@ Numba-accelerated sequential importance sampling (SIS) for uniformly sampling **
 ## Installation
 
 ```bash
+pip install sequential-importance-sampling
+```
+
+For development (editable install from source):
+
+```bash
 pip install -e .
 ```
 
