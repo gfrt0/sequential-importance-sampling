@@ -3,17 +3,10 @@ import numpy as np
 import math
 
 @numba.njit
-def rand_choice_nb( arr, prob ):
-    """
-    Sample from a vector with weights p. numba does not accept np.random.choice(p = ...)
-    """
-    return arr[np.searchsorted( np.cumsum(prob), np.random.random(), side = "right" )]
-
-@numba.njit
 def count_bounded_compositions( s, bounds, K ):
     """
     Counts the number of integer vectors x with sum s and x[k] <= bounds[k].
-    This optimized version uses a 2-loop DP approach with complexity O(K*s).
+    Uses a 2-loop DP approach with complexity O(K*s).
     """
     dp = np.zeros((K + 1, s + 1), dtype=np.int64)
     dp[0, 0] = 1
@@ -28,37 +21,64 @@ def count_bounded_compositions( s, bounds, K ):
             dp[k, j] = upper_sum - lower_sum
     return dp[K, s]
 
+
+@numba.njit
+def _precompute_suffix_counts( column_sum, row_sums, K ):
+    """
+    Precompute suffix_counts[k, s] = number of compositions of s into
+    (x[k], ..., x[K-1]) with x[i] <= row_sums[i].
+
+    Built bottom-up from k = K-1 down to k = 0.  O(K * column_sum).
+    """
+    S = column_sum
+    suffix = np.zeros((K + 1, S + 1), dtype=np.int64)
+    suffix[K, 0] = 1
+
+    for k in range(K - 1, -1, -1):
+        bound_k = row_sums[k]
+        cumsum_next = np.cumsum(suffix[k + 1, :])
+        for s in range(S + 1):
+            upper = cumsum_next[s]
+            lower_idx = s - bound_k - 1
+            lower = cumsum_next[lower_idx] if lower_idx >= 0 else 0
+            suffix[k, s] = upper - lower
+
+    return suffix
+
+
 @numba.njit
 def sample_uniform_column( column_sum, row_sums, K ):
     """
-    Uniformly sample integer vector x with sum s and x[i] <= bounds[i],
-    using recursive conditional sampling.
+    Uniformly sample integer vector x with sum column_sum and x[i] <= row_sums[i],
+    using suffix DP precomputation for O(K * column_sum) total work.
 
-    Inputs:
-    - s: total sum
-    - bounds: upper bounds for each x[i]
-    - rng: numba-compatible random number generator
-
-    Outputs:
-    - x: integer vector of length len(bounds)
+    Returns (x, total_count) where total_count = number of valid compositions.
     """
+    suffix = _precompute_suffix_counts(column_sum, row_sums, K)
+    total_count = suffix[0, column_sum]
+
     output = np.zeros( K, dtype = np.int64 )
-    remaining_in_column = column_sum
+    remaining = column_sum
 
     for k in range(K - 1):
-        max_val = min( row_sums[k], remaining_in_column )
-        choices = np.arange( max_val + 1 )
-        weights = np.zeros( max_val + 1, dtype = np.int64 )
+        max_val = min( row_sums[k], remaining )
 
-        for val in range( max_val + 1 ):
-            weights[val] = count_bounded_compositions( remaining_in_column - val, row_sums[k + 1:], K - ( k + 1 ) )
+        # Sample from unnormalized weights via linear scan.
+        # weight(val) = suffix[k+1, remaining - val]; sum = suffix[k, remaining].
+        target = np.random.random() * float(suffix[k, remaining])
+        cumulative = 0.0
+        chosen = max_val
+        for val in range(max_val + 1):
+            cumulative += float(suffix[k + 1, remaining - val])
+            if cumulative > target:
+                chosen = val
+                break
 
-        probs = weights / np.sum( weights )
-        output[k] = rand_choice_nb( choices, probs )
-        remaining_in_column -= output[k]
+        output[k] = chosen
+        remaining -= chosen
 
-    output[K - 1] = remaining_in_column
-    return output
+    output[K - 1] = remaining
+    return output, total_count
 
 
 @numba.njit
@@ -71,13 +91,12 @@ def sample_table_sis( row_sums, col_sums, K, C ):
     log_q = 0.0
 
     for c in range(C - 1):
-        col = sample_uniform_column( col_sums[c], remaining, K )
+        col, total_count = sample_uniform_column( col_sums[c], remaining, K )
         output[:, c] = col
-        log_q += math.log( count_bounded_compositions( col_sums[c], remaining, K ) )
+        log_q += math.log( total_count )
         remaining -= col
 
     output[:, C - 1] = remaining
-    log_q += 0.0
     return output, -log_q
 
 
