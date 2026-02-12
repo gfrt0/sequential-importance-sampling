@@ -46,17 +46,27 @@ python tests/test_diaconis_gangolli.py
 ```
 
 ```
-True count:              239,382,173
-SIS estimate (n=150k):   239,413,201
+True count:               239,382,173
+SIS estimate (n=150k):    239,413,201
 Coefficient of variation: 0.9512
-Effective sample size:   78,750
+Effective sample size:    78,750
 ```
 
-Or with pytest:
+Run the Holmes-Jones example from the Chen et al. paper:
 
 ```bash
-pytest tests/
+python tests/test_holmes_jones.py
 ```
+
+```
+Reference (Chen et al.):  3.383e16
+SIS estimate (n=1M):     3.382e+16
+log10 estimate:           16.5291
+log10 reference:          16.5293
+Coefficient of variation: 1.0537
+Effective sample size:    473,875
+```
+
 
 ## References
 
