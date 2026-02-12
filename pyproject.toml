@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sequential-importance-sampling"
-version = "0.1.0"
+version = "0.1.1"
 description = "Sequential importance sampling for contingency tables with fixed margins"
 readme = "README.md"
 license = "MIT"

@@ -1,5 +1,7 @@
 # Sequential Importance Sampling for Contingency Tables
 
+[![PyPI version](https://img.shields.io/pypi/v/sequential-importance-sampling)](https://pypi.org/project/sequential-importance-sampling/)
+
 Numba-accelerated sequential importance sampling (SIS) for uniformly sampling **two-way** contingency tables with fixed row and column margins, following **Chen, Diaconis, Holmes, and Liu (2005, JASA)**.
 
 ## Installation
