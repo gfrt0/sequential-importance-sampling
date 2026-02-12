@@ -10,7 +10,7 @@ Chen, Diaconis, Holmes, and Liu (2005, JASA).
 """
 
 import numpy as np
-from src.sequential_importance_sampling import sample_tables_sis_parallel
+from sequential_importance_sampling import sample_tables
 
 
 def test_diaconis_gangolli():
@@ -19,10 +19,8 @@ def test_diaconis_gangolli():
     row_sums = np.array([10, 62, 13, 11, 39])
     col_sums = np.array([65, 25, 45])
 
-    _, logq = sample_tables_sis_parallel(
-        row_sums[:, None, None],
-        col_sums[None, :, None],
-        J=1, K=4, L=3, T=1,
+    _, logq = sample_tables(
+        row_sums, col_sums,
         num_samples=150_000,
         rng_seed=44042,
     )
@@ -37,7 +35,7 @@ def test_diaconis_gangolli():
     print(f"Coefficient of variation: {cv:.4f}")
     print(f"Effective sample size:   {ess:,.0f}")
 
-    # Allow 5% relative error
+    # Allow 1% relative error
     assert abs(estimate - true_count) / true_count < 0.01, (
         f"Estimate {estimate:,.0f} too far from true count {true_count:,}"
     )

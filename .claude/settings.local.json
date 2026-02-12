@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nInitial commit: SIS for contingency tables with fixed margins\n\nNumba-accelerated sequential importance sampling following\nChen, Diaconis, Holmes, and Liu \\(2005, JASA\\), with a test\nreproducing the Diaconis-Gangolli \\(1995\\) counting result.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")"
+    ]
+  }
+}

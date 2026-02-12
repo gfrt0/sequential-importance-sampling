@@ -80,76 +80,106 @@ def sample_table_sis( row_sums, col_sums, K, C ):
     log_q += 0.0
     return output, -log_q
 
+
 @numba.njit
-def sample_tables_sis( r_kjt, M_jlt, J, K, L, T, num_samples, rng_seed = None ):
+def _sample_tables_core(row_sums, col_sums, num_samples, rng_seed):
     """
-    Uniformly sample contingency tables with fixed margins as in Chen Diaconis Holmes Liu (2005, JASA)
+    Sequential inner loop over (num_samples, n_batch).
 
-    r_kjt should be (K + 1 x T x J), M_jlt should be (T x L x J)
+    row_sums: (n_batch, R) — each row is one batch element's row margins
+    col_sums: (n_batch, C) — each row is one batch element's column margins
     """
+    n_batch = row_sums.shape[0]
+    R = row_sums.shape[1]
+    C = col_sums.shape[1]
 
-    tables = np.zeros( (num_samples, K+1, L, T, J), dtype = np.int64 )
-    logq = np.zeros( (num_samples, T, J) )
+    tables = np.zeros((num_samples, n_batch, R, C), dtype=np.int64)
+    logq = np.zeros((num_samples, n_batch))
 
-    for s in range( num_samples ):
-        for j in range( J ):
-            for t in range( T ):
-                if rng_seed is not None:
-                    np.random.seed(rng_seed + s*104729 + j*131 + t)
-                table, lnq = sample_table_sis( r_kjt[:, t, j].copy(), M_jlt[t, :, j].copy(), K+1, L )
-                tables[s, :, :, t, j] = table
-                logq[s, t, j] = lnq
-
-    return tables, logq
-
-@numba.njit(parallel = True)
-def sample_tables_sis_parallel_singleperiod( r_kj, M_jl, J, K, L, num_samples, rng_seed = None ):
-    """
-    Uniformly sample contingency tables with fixed margins as in Chen Diaconis Holmes Liu (2005, JASA), in parallel.
-
-    r_kjt should be (K + 1 x J), M_jlt should be (L x J)
-
-    Outputs:
-    - tables ( num_samples x K + 1 x L x J )
-    - logq   ( num_samples x J )
-    """
-
-    tables = np.zeros( (num_samples, K+1, L, J), dtype = np.int64 )
-    logq   = np.zeros( (num_samples, J) )
-
-    for s in numba.prange(num_samples):
-        for j in range(J):
+    for s in range(num_samples):
+        for b in range(n_batch):
             if rng_seed is not None:
-                np.random.seed(rng_seed + s*104729 + j*131)
-            table, lnq = sample_table_sis( r_kj[:, j].copy(), M_jl[:, j].copy(), K+1, L )
-            tables[s, :, :, j] = table
-            logq[s, j] = lnq
+                np.random.seed(rng_seed + s * 104729 + b * 131)
+            table, lnq = sample_table_sis(row_sums[b].copy(), col_sums[b].copy(), R, C)
+            tables[s, b] = table
+            logq[s, b] = lnq
 
     return tables, logq
 
-@numba.njit(parallel = True)
-def sample_tables_sis_parallel( r_kjt, M_jlt, J, K, L, T, num_samples, rng_seed = None ):
+
+@numba.njit(parallel=True)
+def _sample_tables_core_parallel(row_sums, col_sums, num_samples, rng_seed):
     """
-    Uniformly sample contingency tables with fixed margins as in Chen Diaconis Holmes Liu (2005, JASA), in parallel.
-    Sorting rows and columns (as suggested by the authors) did not appear to provide a substantial improvement in testing, so I skip that here.
+    Parallel inner loop: prange over num_samples, sequential over n_batch.
 
-    r_kjt should be (K + 1 x T x J), M_jlt should be (T x L x J)
-
-    Outputs:
-    - tables ( num_samples x K + 1 x L x T x J )
-    - logq   ( num_samples x T x J )
+    row_sums: (n_batch, R) — each row is one batch element's row margins
+    col_sums: (n_batch, C) — each row is one batch element's column margins
     """
+    n_batch = row_sums.shape[0]
+    R = row_sums.shape[1]
+    C = col_sums.shape[1]
 
-    tables = np.zeros( (num_samples, K+1, L, T, J), dtype = np.int64 )
-    logq   = np.zeros( (num_samples, T, J) )
+    tables = np.zeros((num_samples, n_batch, R, C), dtype=np.int64)
+    logq = np.zeros((num_samples, n_batch))
 
     for s in numba.prange(num_samples):
-        for t in range(T):
-            for j in range(J):
-                if rng_seed is not None:
-                    np.random.seed(rng_seed + s*104729 + j*131 + t)
-                table, lnq = sample_table_sis( r_kjt[:, t, j].copy(), M_jlt[t, :, j].copy(), K+1, L )
-                tables[s, :, :, t, j] = table
-                logq[s, t, j] = lnq
+        for b in range(n_batch):
+            if rng_seed is not None:
+                np.random.seed(rng_seed + s * 104729 + b * 131)
+            table, lnq = sample_table_sis(row_sums[b].copy(), col_sums[b].copy(), R, C)
+            tables[s, b] = table
+            logq[s, b] = lnq
+
+    return tables, logq
+
+
+def sample_tables(row_sums, col_sums, num_samples, rng_seed=None, parallel=True):
+    """
+    Sample contingency tables with fixed margins via sequential importance
+    sampling, following Chen, Diaconis, Holmes, and Liu (2005, JASA).
+
+    Inputs:
+        row_sums : array of shape (R, *batch) — row margins
+        col_sums : array of shape (C, *batch) — column margins
+            Batch dimensions (if any) must match between row_sums and col_sums.
+        num_samples : int — number of tables to draw
+        rng_seed    : optional int — seed for reproducibility
+        parallel    : bool — use numba parallel sampling (default True)
+
+    Outputs:
+        tables : int64 array of shape (num_samples, *batch, R, C)
+        logq   : float64 array of shape (num_samples, *batch)
+            Log importance weights. To estimate the number of tables with
+            the given margins, compute np.exp(-logq).mean().
+    """
+    row_sums = np.asarray(row_sums, dtype=np.int64)
+    col_sums = np.asarray(col_sums, dtype=np.int64)
+
+    R = row_sums.shape[0]
+    C = col_sums.shape[0]
+    batch_shape = row_sums.shape[1:]
+
+    assert col_sums.shape[1:] == batch_shape, (
+        f"Batch shapes must match: row_sums {row_sums.shape[1:]} vs col_sums {col_sums.shape[1:]}"
+    )
+
+    n_batch = int(np.prod(batch_shape)) if len(batch_shape) > 0 else 1
+
+    # Flatten batch dims and transpose so each batch element's margins are a
+    # contiguous row: (R, n_batch) -> (n_batch, R), same for col_sums.
+    row_flat = np.ascontiguousarray(row_sums.reshape(R, n_batch).T)
+    col_flat = np.ascontiguousarray(col_sums.reshape(C, n_batch).T)
+
+    if parallel:
+        tables_flat, logq_flat = _sample_tables_core_parallel(
+            row_flat, col_flat, num_samples, rng_seed
+        )
+    else:
+        tables_flat, logq_flat = _sample_tables_core(
+            row_flat, col_flat, num_samples, rng_seed
+        )
+
+    tables = tables_flat.reshape((num_samples,) + batch_shape + (R, C))
+    logq = logq_flat.reshape((num_samples,) + batch_shape)
 
     return tables, logq

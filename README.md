@@ -12,36 +12,30 @@ pip install -e .
 
 ```python
 import numpy as np
-from src.sequential_importance_sampling import sample_tables_sis_parallel
+from sequential_importance_sampling import sample_tables
 
 # Row and column margins from Chen et al. (2005)
 row_sums = np.array([10, 62, 13, 11, 39])
 col_sums = np.array([65, 25, 45])
 
 # Draw 150,000 importance-weighted tables
-tables, logq = sample_tables_sis_parallel(
-    row_sums[:, None, None],
-    col_sums[None, :, None],
-    J=1, K=4, L=3, T=1,
-    num_samples=150_000,
-    rng_seed=44042,
-)
+tables, logq = sample_tables(row_sums, col_sums, num_samples=150_000, rng_seed=44042)
 
 # Estimate the number of tables with these margins
 # True value: 239,382,173 (Diaconis and Gangolli, 1995)
 print("Estimate:", np.exp(-logq).mean())
 ```
 
+Batch dimensions are supported: if `row_sums` has shape `(R, d1, d2, ...)` and `col_sums` has shape `(C, d1, d2, ...)`, the output `tables` will have shape `(num_samples, d1, d2, ..., R, C)` with batch dims before table dims for C-contiguous access.
+
 ## API
 
 | Function | Description |
 |---|---|
+| `sample_tables` | Main entry point — sample batches of tables with arbitrary batch dimensions |
 | `sample_table_sis` | Sample a single contingency table via column-wise SIS |
-| `sample_tables_sis` | Sample multiple tables (sequential) |
-| `sample_tables_sis_parallel` | Sample multiple tables (parallel via `numba.prange`) |
-| `sample_tables_sis_parallel_singleperiod` | Parallel sampling, single time-period variant |
 
-All samplers return `(tables, logq)` where `logq` contains the log importance weights.
+`sample_tables` returns `(tables, logq)` where `logq` contains the log importance weights. Pass `parallel=False` to disable numba parallelism.
 
 ## Tests
 
@@ -49,6 +43,13 @@ Run the Diaconis-Gangolli counting verification:
 
 ```bash
 python tests/test_diaconis_gangolli.py
+```
+
+```
+True count:              239,382,173
+SIS estimate (n=150k):   239,413,201
+Coefficient of variation: 0.9512
+Effective sample size:   78,750
 ```
 
 Or with pytest:

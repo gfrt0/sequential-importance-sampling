@@ -12,3 +12,9 @@ dependencies = [
 dev = [
     "pytest",
 ]
+
+[tool.setuptools]
+py-modules = ["sequential_importance_sampling"]
+
+[tool.setuptools.package-dir]
+"" = "src"
