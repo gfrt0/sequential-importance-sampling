@@ -1,0 +1,14 @@
+[project]
+name = "sequential-importance-sampling"
+version = "0.1.0"
+description = "Sequential importance sampling for contingency tables with fixed margins"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+    "numba",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
