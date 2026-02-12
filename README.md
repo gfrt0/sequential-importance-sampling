@@ -1,6 +1,6 @@
 # Sequential Importance Sampling for Contingency Tables
 
-Numba-accelerated sequential importance sampling (SIS) for uniformly sampling contingency tables with fixed row and column margins, following **Chen, Diaconis, Holmes, and Liu (2005, JASA)**.
+Numba-accelerated sequential importance sampling (SIS) for uniformly sampling **two-way** contingency tables with fixed row and column margins, following **Chen, Diaconis, Holmes, and Liu (2005, JASA)**.
 
 ## Installation
 
@@ -26,7 +26,7 @@ tables, logq = sample_tables(row_sums, col_sums, num_samples=150_000, rng_seed=4
 print("Estimate:", np.exp(-logq).mean())
 ```
 
-Batch dimensions are supported: if `row_sums` has shape `(R, d1, d2, ...)` and `col_sums` has shape `(C, d1, d2, ...)`, the output `tables` will have shape `(num_samples, d1, d2, ..., R, C)` with batch dims before table dims for C-contiguous access.
+**Batch dimensions** are supported for sampling many independent two-way tables in parallel. If `row_sums` has shape `(R, d1, d2, ...)` and `col_sums` has shape `(C, d1, d2, ...)`, each combination of batch indices defines an independent R×C table problem. The output `tables` will have shape `(num_samples, d1, d2, ..., R, C)` with batch dims before table dims for C-contiguous access. Note that this does **not** extend to multi-way (3+) contingency tables with additional margin constraints — each batch element is a separate two-way table.
 
 ## API
 
