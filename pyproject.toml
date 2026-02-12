@@ -1,8 +1,22 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "sequential-importance-sampling"
 version = "0.1.0"
 description = "Sequential importance sampling for contingency tables with fixed margins"
+readme = "README.md"
+license = "MIT"
 requires-python = ">=3.9"
+authors = [
+    { name = "gfrt0" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
 dependencies = [
     "numpy",
     "numba",
@@ -12,6 +26,9 @@ dependencies = [
 dev = [
     "pytest",
 ]
+
+[project.urls]
+Repository = "https://github.com/gfrt0/sequential-importance-sampling"
 
 [tool.setuptools]
 py-modules = ["sequential_importance_sampling"]
